@@ -12,7 +12,6 @@
 #include <kern/kdebug.h>
 
 #include <kern/hidden.h>
-
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
 
@@ -27,7 +26,9 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "hidden", "Run hidden test cases", exec_hidden_cases},
+	{ "hidden", "Run hidden test cases", exec_hidden_cases, },
+	{ "backtrace", "Display a stack backtrace", mon_backtrace },
+	// { "show", "Display ASCII art", mon_show}, 
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -64,6 +65,23 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	// LAB 1: Your code here.
     // HINT 1: use read_ebp().
     // HINT 2: print the current ebp on the first line (not current_ebp[0])
+	cprintf("Stack backtrace:\n");
+	uint32_t* ebp = (uint32_t*)read_ebp();
+	uintptr_t eip;
+	struct Eipdebuginfo info;
+	while(ebp != NULL){
+		eip = ebp[1];
+		if(debuginfo_eip(eip, &info)){
+			cprintf("info not found!\n");
+		}
+		cprintf("ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", ebp, eip, ebp[2], 
+																					ebp[3], 
+																					ebp[4], 
+																					ebp[5],
+																					ebp[6]);
+		cprintf("	%s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, eip - info.eip_fn_addr);
+		ebp = (uint32_t*)(*ebp);
+	}
 	return 0;
 }
 
