@@ -28,7 +28,7 @@ static struct Command commands[] = {
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "hidden", "Run hidden test cases", exec_hidden_cases, },
 	{ "backtrace", "Display a stack backtrace", mon_backtrace },
-	// { "show", "Display ASCII art", mon_show}, 
+	{ "show", "Display ASCII art", mon_show }, 
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -82,6 +82,18 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		cprintf("	%s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, eip - info.eip_fn_addr);
 		ebp = (uint32_t*)(*ebp);
 	}
+	return 0;
+}
+
+int
+mon_show(int argc, char **argv, struct Trapframe *tf){
+	
+	cprintf("\x1b[31mH   H EEEEE L     L      OOO       W   W  OOO  RRRR  L     DDDD  !!\x1b[0m\n");
+	cprintf("\x1b[32mH   H E     L     L     O   O      W W W O   O R   R L     D   D !!\x1b[0m\n");
+	cprintf("\x1b[33mHHHHH EEEEE L     L     O   O      W W W O   O RRRR  L     D   D !!\x1b[0m\n");
+	cprintf("\x1b[34mH   H E     L     L     O   O  ,,   W W  O   O R   R L     D   D   \x1b[0m\n");
+	cprintf("\x1b[35mH   H EEEEE LLLLL LLLLL  OOO  ,,    W W   OOO  R   R LLLLL DDDD  !!\x1b[0m\n");
+
 	return 0;
 }
 
