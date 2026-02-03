@@ -1,5 +1,8 @@
 /* See COPYRIGHT for copyright information. */
 
+#include "inc/memlayout.h"
+#include "inc/stdio.h"
+#include "inc/types.h"
 #include <inc/x86.h>
 #include <inc/mmu.h>
 #include <inc/error.h>
@@ -104,8 +107,15 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
+	
+	result = nextfree;
+	nextfree = ROUNDUP((char*) nextfree + n, PGSIZE);
 
-	return NULL;
+	if((int)nextfree > 0xffffffff){
+		panic("out of memory");
+	}
+
+	return result;
 }
 
 // Set up a two-level page table:
@@ -127,7 +137,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	// panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -151,6 +161,7 @@ mem_init(void)
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
 
+	pages = boot_alloc(sizeof(struct PageInfo) * npages);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -259,11 +270,27 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	size_t i;
-	for (i = 0; i < npages; i++) {
+	size_t first_extmem_free_page_num = (uint32_t)PADDR(boot_alloc(0)) / PGSIZE;
+
+	page_free_list = NULL;
+	pages[0].pp_ref = 1;
+	// pages[0].pp_link = page_free_list;
+	for (i = 1; i < npages_basemem; i++) {
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
 	}
+
+	for (i = npages_basemem; i < first_extmem_free_page_num; i++){
+		pages[i].pp_ref = 1;
+	}
+
+	for(i = first_extmem_free_page_num; i < npages; i++){
+		pages[i].pp_ref = 0;
+		pages[i].pp_link = page_free_list;
+		page_free_list = &pages[i];
+	}
+
 }
 
 //
@@ -471,11 +498,16 @@ check_page_free_list(bool only_low_memory)
 		page_free_list = pp1;
 	}
 
+	cprintf("Success up to here\n");
+
+
 	// if there's a page that shouldn't be on the free list,
 	// try to make sure it eventually causes trouble.
 	for (pp = page_free_list; pp; pp = pp->pp_link)
 		if (PDX(page2pa(pp)) < pdx_limit)
 			memset(page2kva(pp), 0x97, 128);
+
+	cprintf("Success up to here\n");
 
 	first_free_page = (char *) boot_alloc(0);
 	for (pp = page_free_list; pp; pp = pp->pp_link) {
