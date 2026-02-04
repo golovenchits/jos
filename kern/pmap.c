@@ -393,7 +393,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		struct PageInfo *new_pt_page = page_alloc(ALLOC_ZERO);
 		if (new_pt_page == NULL) return NULL;
 		new_pt_page->pp_ref = 1;
-		pgdir[d] = page2pa(new_pt_page);
+		pgdir[d] = page2pa(new_pt_page) | 0xfff;
 		pte_t *pt = (pte_t *)KADDR(page2pa(new_pt_page));
     	return &pt[t];
 	}
@@ -414,8 +414,10 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
-	for (int i = va; i < va+size; i++) {
-		
+	for (uintptr_t i = va; i < va+size; i+=PGSIZE) {
+		pte_t* pte = pgdir_walk(pgdir, (void*)i, true);
+		*pte = pa | perm | PTE_P;
+		pa += PGSIZE;
 	}
 }
 
