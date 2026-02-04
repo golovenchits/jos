@@ -453,19 +453,17 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 	pte_t* new_pte;
 
-	// If there is already a page -- remove it
-	if(pgdir_walk(pgdir, va, false)){
+	new_pte = pgdir_walk(pgdir, va, true);
+	if(!new_pte) return -E_NO_MEM;
+	if(*new_pte & PTE_P){
+		if (page2pa(pp) == PTE_ADDR(*new_pte)) {
+           *new_pte = page2pa(pp) | PTE_P | perm;
+           return 0;
+        }
 		page_remove(pgdir, va);
-	} else {
-		new_pte = pgdir_walk(pgdir, va, true);
-		if(new_pte){
-			pp->pp_ref = 1;
-		} else {
-			//invalidate TLB
-		}
-
 	}
-
+	pp->pp_ref++;
+	*new_pte = page2pa(pp) | perm | PTE_P;
 
 	return 0;
 }
