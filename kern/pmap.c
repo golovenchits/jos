@@ -309,7 +309,17 @@ struct PageInfo *
 page_alloc(int alloc_flags)
 {
 	// Fill this function in
-	return 0;
+	if (page_free_list == NULL) return NULL;
+
+	struct PageInfo* free_page = page_free_list;
+	if (alloc_flags && ALLOC_ZERO) {
+		memset(page2kva(free_page), 0, PGSIZE);
+	}
+
+	page_free_list = page_free_list->pp_link;
+	free_page->pp_link = NULL;
+
+	return free_page;
 }
 
 //
@@ -322,6 +332,13 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+
+	if ((pp->pp_ref != 0) || (pp->pp_link != NULL)) {
+		panic("if pp->pp_ref is nonzero or pp->pp_link is not NULL");
+	}
+
+	pp->pp_link = page_free_list;
+	page_free_list = pp;
 }
 
 //
@@ -361,7 +378,25 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+	uintptr_t d = PDX(va);
+	uintptr_t t = PTX(va);
+	uintptr_t o = PGOFF(va);
+
+	pde_t pde = pgdir[d];
+
+	if ((create == false) && (!pde)) {
+		return NULL;
+	} else if (pde) {
+		pte_t *ret = KADDR(PTE_ADDR(pde)) + t;
+		return (ret);
+	} else if (create) {
+		struct PageInfo *new_pt_page = page_alloc(ALLOC_ZERO);
+		if (new_pt_page == NULL) return NULL;
+		new_pt_page->pp_ref = new_pt_page->pp_ref+1;
+		pgdir[d] = PADDR(PGADDR(d,t,o));
+		return KADDR(page2pa(new_pt_page));
+	}
+
 }
 
 //
