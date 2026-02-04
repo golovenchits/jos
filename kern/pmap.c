@@ -386,17 +386,16 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 	if ((create == false) && (!pde)) {
 		return NULL;
-	} else if (pde) {
+	} else if (pde && !create) {
 		pte_t *ret = KADDR(PTE_ADDR(pde)) + t;
 		return (ret);
-	} else if (create) {
+	} else {
 		struct PageInfo *new_pt_page = page_alloc(ALLOC_ZERO);
 		if (new_pt_page == NULL) return NULL;
 		new_pt_page->pp_ref = new_pt_page->pp_ref+1;
 		pgdir[d] = PADDR(PGADDR(d,t,o));
-		return KADDR(page2pa(new_pt_page));
+		return (KADDR(page2pa(new_pt_page)));
 	}
-
 }
 
 //
