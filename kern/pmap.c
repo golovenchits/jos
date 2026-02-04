@@ -188,6 +188,8 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 
+
+
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -385,14 +387,14 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	pde_t pde = pgdir[d];
 
 	if ((pde & PTE_P)) {
-		pte_t *ret = KADDR(PTE_ADDR(pde)) + t;
-		return (ret);
+		pde_t *ret = KADDR(PTE_ADDR(pde));
+		return (ret+t);
 	} else if (!create) {
 		return NULL;
 	} else {
 		struct PageInfo *new_pt_page = page_alloc(ALLOC_ZERO);
 		if (new_pt_page == NULL) return NULL;
-		new_pt_page->pp_ref = 1;
+		new_pt_page->pp_ref++;
 		pgdir[d] = page2pa(new_pt_page) | 0xfff;
 		pte_t *pt = (pte_t *)KADDR(page2pa(new_pt_page));
     	return &pt[t];
@@ -455,15 +457,16 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 	new_pte = pgdir_walk(pgdir, va, true);
 	if(!new_pte) return -E_NO_MEM;
+	physaddr_t pa = page2pa(pp);
 	if(*new_pte & PTE_P){
-		if (page2pa(pp) == PTE_ADDR(*new_pte)) {
-           *new_pte = page2pa(pp) | PTE_P | perm;
+		if (PTE_ADDR(*new_pte) == pa) {
+           *new_pte = pa | perm | PTE_P;
            return 0;
         }
 		page_remove(pgdir, va);
 	}
 	pp->pp_ref++;
-	*new_pte = page2pa(pp) | perm | PTE_P;
+	*new_pte = pa | perm | PTE_P;
 
 	return 0;
 }
@@ -490,7 +493,7 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 		*pte_store = pte_lookup;
 	}
 
-	return pa2page(PTE_ADDR(pte_lookup));
+	return pa2page(PTE_ADDR(*pte_lookup));
 }
 
 //
