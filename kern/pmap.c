@@ -100,7 +100,7 @@ boot_alloc(uint32_t n)
 	// to any kernel code or global variables.
 	if (!nextfree) {
 		extern char end[];
-		nextfree = ROUNDUP((char *) end, PGSIZE);
+		nextfree = ROUNDUP((char *) end + 1, PGSIZE);
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update
@@ -163,6 +163,7 @@ mem_init(void)
 	// Your code goes here:
 
 	pages = boot_alloc(sizeof(struct PageInfo) * npages);
+	envs = boot_alloc(sizeof(struct Env) * NENV);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -190,7 +191,7 @@ mem_init(void)
 	// Your code goes here:
 
 	boot_map_region(kern_pgdir, (uintptr_t)UPAGES, sizeof(struct PageInfo) * npages, PADDR(pages), PTE_U | PTE_P);
-
+	boot_map_region(kern_pgdir, (uintptr_t)UENVS, sizeof(struct Env) * NENV, PADDR(envs), PTE_U | PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
