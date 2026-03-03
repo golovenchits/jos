@@ -188,6 +188,14 @@ env_setup_vm(struct Env *e)
 
 	// LAB 3: Your code here.
 
+	e->env_pgdir = page2kva(p);
+
+	for(int i = PDX(UTOP); i<NPDENTRIES; i++){
+		e->env_pgdir[i] = kern_pgdir[i];
+	}
+
+	p->pp_ref++;
+
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
 	e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
@@ -275,6 +283,19 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+	uintptr_t start = ROUNDDOWN((uintptr_t)va, PGSIZE);
+	uintptr_t end = ROUNDUP((uintptr_t)(va+len), PGSIZE);
+	struct PageInfo* p;
+	for(uintptr_t i = start; i < end; i+=PGSIZE){
+		p = page_alloc(ALLOC_ZERO);
+		if (!p){
+			panic("OUT OF MEMORY\n");
+		}
+		if(page_insert(kern_pgdir, p, (void*)i, PTE_U | PTE_W)){
+			panic("error inserting\n");
+		}
+	}
+
 }
 
 //
@@ -331,11 +352,33 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	// LAB 3: Your code here.
+	uint32_t prev_cr3 = rcr3();
+	lcr3(PADDR(e->env_pgdir));
 
+	
+	struct Elf *elf = (struct Elf*) binary;
+	e->env_tf.tf_eip = elf->e_entry;
+
+	struct Proghdr *header = (struct Proghdr *)((uint32_t)elf + elf->e_phoff);
+	struct Proghdr *end = header + elf->e_phnum;
+
+	while(header < end){
+		if(header->p_type == ELF_PROG_LOAD){
+			region_alloc(e, (void*)header->p_va, (size_t)header->p_memsz);
+			memcpy((void*)header->p_va, (void*)(binary + header->p_offset), (size_t)header->p_filesz);
+			memset((void*)header->p_va, 0, header->p_memsz);
+		}
+	}
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
+
+	lcr3(prev_cr3);
+	region_alloc(e, (void*) (USTACKTOP-PGSIZE), PGSIZE);
+
+	e->env_tf.tf_esp = USTACKTOP;
+	e->env_tf.tf_eip = elf->e_entry;
 }
 
 //
