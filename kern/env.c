@@ -291,10 +291,11 @@ region_alloc(struct Env *e, void *va, size_t len)
 		if (!p){
 			panic("OUT OF MEMORY\n");
 		}
-		if(page_insert(kern_pgdir, p, (void*)i, PTE_U | PTE_W)){
+		if(page_insert(e->env_pgdir, p, (void*)i, PTE_U | PTE_W)){
 			panic("error inserting\n");
 		}
 	}
+	cprintf("Alloc'd region\n");
 
 }
 
@@ -359,26 +360,34 @@ load_icode(struct Env *e, uint8_t *binary)
 	struct Elf *elf = (struct Elf*) binary;
 	e->env_tf.tf_eip = elf->e_entry;
 
-	struct Proghdr *header = (struct Proghdr *)((uint32_t)elf + elf->e_phoff);
-	struct Proghdr *end = header + elf->e_phnum;
+	struct Proghdr *ph = (struct Proghdr *)((uint32_t)elf + elf->e_phoff);
+	struct Proghdr *end = ph + elf->e_phnum;
 
-	while(header < end){
-		if(header->p_type == ELF_PROG_LOAD){
-			region_alloc(e, (void*)header->p_va, (size_t)header->p_memsz);
-			memcpy((void*)header->p_va, (void*)(binary + header->p_offset), (size_t)header->p_filesz);
-			memset((void*)header->p_va, 0, header->p_memsz);
+	while(ph < end){
+
+		if(ph->p_type == ELF_PROG_LOAD){
+			region_alloc(e, (void*)ph->p_va, (size_t)ph->p_memsz);
+			assert(ph->p_filesz <= ph->p_memsz);
+			cprintf("HERE\n");
+			memset((void*)ph->p_va, 0, ph->p_memsz);
+			cprintf("Set done\n");
+			memcpy((void*)ph->p_va, (void*)(binary + ph->p_offset), ph->p_filesz);
+			cprintf("Copies done\n");
 		}
+		ph++;
 	}
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
-
+	cprintf("another alloc\n");
 	lcr3(prev_cr3);
 	region_alloc(e, (void*) (USTACKTOP-PGSIZE), PGSIZE);
 
 	e->env_tf.tf_esp = USTACKTOP;
 	e->env_tf.tf_eip = elf->e_entry;
+
+	cprintf("icode exit\n");
 }
 
 //
@@ -392,6 +401,15 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
+	// struct Env *newenv;
+
+	struct Env *e;
+	if (env_alloc(&e, 0)) {
+        panic("Can't create inital user environment");
+    }
+	e->env_type = type;
+	load_icode(e, binary);
+	cprintf("Create exit\n");
 }
 
 //
@@ -509,6 +527,14 @@ env_run(struct Env *e)
 
 	// LAB 3: Your code here.
 
-	panic("env_run not yet implemented");
+	if (curenv) curenv->env_status = ENV_RUNNABLE;
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
+	lcr3(PADDR(curenv->env_pgdir));
+	cprintf("HERE3\n");
+	env_pop_tf(&curenv->env_tf);
+	cprintf("Exit envrun\n");
+
 }
 
