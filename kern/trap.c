@@ -214,7 +214,9 @@ trap_dispatch(struct Trapframe *tf)
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
-	else {
+	else if (!(tf->tf_cs & 0b11)){
+		panic("kernel page fault");
+	}else {
 		env_destroy(curenv);
 		return;
 	}
