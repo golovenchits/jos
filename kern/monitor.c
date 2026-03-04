@@ -28,6 +28,7 @@ static struct Command commands[] = {
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display a stack backtrace", mon_backtrace },
 	{ "show", "Display ASCII art", mon_show }, 
+	{"si", "Something", mon_si},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -93,6 +94,11 @@ mon_show(int argc, char **argv, struct Trapframe *tf){
 	cprintf("\x1b[34mH   H E     L     L     O   O  ,,   W W  O   O R   R L     D   D   \x1b[0m\n");
 	cprintf("\x1b[35mH   H EEEEE LLLLL LLLLL  OOO  ,,    W W   OOO  R   R LLLLL DDDD  !!\x1b[0m\n");
 
+	return 0;
+}
+
+int mon_si(int argc, char **argv, struct Trapframe *tf){
+	tf->tf_eflags |= 1 << 8;
 	return 0;
 }
 
