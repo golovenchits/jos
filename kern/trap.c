@@ -124,7 +124,6 @@ trap_init(void)
 	SETGATE(idt[T_MCHK], 0, GD_KT, t_mchk, 0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, t_simderr, 0);
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, t_syscall, 3);
-	SETGATE(idt[T_DEFAULT], 0, GD_KT, t_default, 0);
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -340,6 +339,8 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+	if ((tf->tf_cs & 3) == 0)
+		panic("kernel page fault");
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
@@ -376,9 +377,36 @@ page_fault_handler(struct Trapframe *tf)
 	// LAB 4: Your code here.
 
 	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
-	print_trapframe(tf);
-	env_destroy(curenv);
+	if(!curenv->env_pgfault_upcall){
+		cprintf("[%08x] user fault va %08x ip %08x\n",
+			curenv->env_id, fault_va, tf->tf_eip);
+		print_trapframe(tf);
+		env_destroy(curenv);
+		return;
+	}
+
+	uintptr_t utf_addr;
+	if ((uintptr_t) tf->tf_esp >= UXSTACKTOP - PGSIZE &&
+	    (uintptr_t) tf->tf_esp < UXSTACKTOP)
+		utf_addr = tf->tf_esp - 4 - sizeof(struct UTrapframe);
+	else
+		utf_addr = UXSTACKTOP - sizeof(struct UTrapframe);
+
+	user_mem_assert(curenv, (void *) utf_addr, sizeof(struct UTrapframe), PTE_W);
+
+	struct UTrapframe *utf = (struct UTrapframe *) utf_addr;
+	utf->utf_fault_va = fault_va;
+	utf->utf_err = tf->tf_err;
+	utf->utf_regs = tf->tf_regs;
+	utf->utf_eip = tf->tf_eip;
+	utf->utf_eflags = tf->tf_eflags;
+	utf->utf_esp = tf->tf_esp;
+
+	curenv->env_tf.tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
+	curenv->env_tf.tf_esp = utf_addr;
+
+	env_run(curenv);
+
+	return;
 }
 
