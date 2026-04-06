@@ -1,0 +1,15 @@
+1. MPBOOTPHYS is used to calculate absolute addresses of its symbols, 
+rather than relying on the linker to fill them. This is necessary in mpentry and 
+not in boot because boot is loaded to page 0 and mpentry is linked to
+KERNBASE and also loaded at 0, so we need the macro to offset the address of mpentry.
+
+2. We need this for interrupts to work correctly. If 2 or more cores detect an interrupt
+there can be a race condition or hazard when saving registers, since this is not
+protected by the big lock.
+
+3. e is in the kernel stack, which maintains the same physical address both
+before and after the switch.
+
+4. This is done because we want to restore the previous state after the process finishes
+and returns to the process that the kernel was executing before. This is done in _alltraps
+by calling pushal. Then we can restore the state by calling env_pop_tf().
