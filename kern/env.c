@@ -263,6 +263,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
+	e->env_tf.tf_eflags = FL_IF;
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -307,7 +308,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 			panic("error inserting\n");
 		}
 	}
-	cprintf("Alloc'd region\n");
+	// cprintf("Alloc'd region\n");
 
 }
 
@@ -380,11 +381,11 @@ load_icode(struct Env *e, uint8_t *binary)
 		if(ph->p_type == ELF_PROG_LOAD){
 			region_alloc(e, (void*)ph->p_va, (size_t)ph->p_memsz);
 			assert(ph->p_filesz <= ph->p_memsz);
-			cprintf("HERE\n");
+			// cprintf("HERE\n");
 			memset((void*)ph->p_va, 0, ph->p_memsz);
-			cprintf("Set done\n");
+			// cprintf("Set done\n");
 			memcpy((void*)ph->p_va, (void*)(binary + ph->p_offset), ph->p_filesz);
-			cprintf("Copies done\n");
+			// cprintf("Copies done\n");
 		}
 		ph++;
 	}
@@ -399,7 +400,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	e->env_tf.tf_esp = USTACKTOP;
 	e->env_tf.tf_eip = elf->e_entry;
 
-	cprintf("icode exit\n");
+	// cprintf("icode exit\n");
 }
 
 //
@@ -421,7 +422,7 @@ env_create(uint8_t *binary, enum EnvType type)
     }
 	e->env_type = type;
 	load_icode(e, binary);
-	cprintf("Create exit\n");
+	// cprintf("Create exit\n");
 }
 
 //
