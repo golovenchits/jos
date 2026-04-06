@@ -86,9 +86,7 @@ sys_exofork(void)
 
 	// LAB 4: Your code here.
 	struct Env* new_env;
-	cprintf("sys_exofork called\n");
 	int err = env_alloc(&new_env, curenv->env_id);
-	cprintf("sys_exofork: error: %d\n", err);
 	if((err) < 0) {
 		return err;
 	}
@@ -338,7 +336,45 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	struct Env *dst_env;
+	int r = envid2env(envid, &dst_env, 0);
+	if (r < 0)
+		return r;
+
+	if (!dst_env->env_ipc_recving)
+		return -E_IPC_NOT_RECV;
+
+	int ipc_perm = 0;
+	if ((uintptr_t) srcva < UTOP) {
+		if (PGOFF(srcva))
+			return -E_INVAL;
+		if ((perm & ~PTE_SYSCALL) ||
+		    ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P)))
+			return -E_INVAL;
+
+		pte_t *pte;
+		struct PageInfo *pp = page_lookup(curenv->env_pgdir, srcva, &pte);
+		if (!pp)
+			return -E_INVAL;
+		if ((perm & PTE_W) && !(*pte & PTE_W))
+			return -E_INVAL;
+
+		if ((uintptr_t) dst_env->env_ipc_dstva < UTOP) {
+			r = page_insert(dst_env->env_pgdir, pp, dst_env->env_ipc_dstva, perm);
+			if (r < 0)
+				return r;
+			ipc_perm = perm;
+		}
+	}
+
+	dst_env->env_ipc_recving = 0;
+	dst_env->env_ipc_from = curenv->env_id;
+	dst_env->env_ipc_value = value;
+	dst_env->env_ipc_perm = ipc_perm;
+	dst_env->env_status = ENV_RUNNABLE;
+	dst_env->env_tf.tf_regs.reg_eax = 0;
+
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -356,7 +392,14 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	if ((uintptr_t) dstva < UTOP && PGOFF(dstva)) {
+		return -E_INVAL;
+	}
+
+	curenv->env_ipc_recving = 1;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sched_yield();
 	return 0;
 }
 
