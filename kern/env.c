@@ -1,5 +1,6 @@
 /* See COPYRIGHT for copyright information. */
 
+#include "inc/env.h"
 #include <inc/x86.h>
 #include <inc/mmu.h>
 #include <inc/error.h>
@@ -425,6 +426,10 @@ env_create(uint8_t *binary, enum EnvType type)
     }
 	e->env_type = type;
 	load_icode(e, binary);
+
+	if(type == ENV_TYPE_FS){
+		e->env_tf.tf_eflags |= FL_IOPL_3;
+	}
 	// cprintf("Create exit\n");
 }
 
