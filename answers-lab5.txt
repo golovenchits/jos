@@ -1,0 +1,1 @@
+1. No, the hardware pushes it with eflags to the stack upon interrupts and then restores it in env_pop_tf.
