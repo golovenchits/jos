@@ -92,6 +92,17 @@ duppage(envid_t envid, unsigned pn)
 			return r;
 	}
 
+
+	// r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W);
+	// if (r < 0) return -1;
+
+	// memmove(PFTEMP, va, PGSIZE);
+
+	// r = sys_page_map(0, PFTEMP, dest, va, PTE_P|PTE_U|PTE_W);
+	// if (r < 0) return -1;
+
+	// r = sys_page_unmap(0, PFTEMP);
+	// if (r < 0) return -1;
 	
 	return 0;
 }
